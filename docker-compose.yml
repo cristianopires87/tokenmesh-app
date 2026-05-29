@@ -1,0 +1,34 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: tokenmesh-postgres
+    environment:
+      POSTGRES_USER: tokenmesh
+      POSTGRES_PASSWORD: tokenmesh
+      POSTGRES_DB: tokenmesh
+    ports:
+      - "5432:5432"
+
+  collector:
+    build:
+      context: .
+      dockerfile: collector/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://tokenmesh:tokenmesh@postgres:5432/tokenmesh
+    depends_on:
+      - postgres
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      TOKENMESH_API_URL: http://collector:8000
+    depends_on:
+      - collector

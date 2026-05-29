@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+.idea/
+.venv/
+*.db
+tokenmesh.db
+*.log
+.pytest_cache/
+.claude/
