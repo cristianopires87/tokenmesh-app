@@ -2,10 +2,7 @@
 
 Token observability and cost governance for multi-agent LLM systems.
 
-![Python](https://img.shields.io/badge/python-3.11%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.116-009688)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.57-FF4B4B)
+Python 3.11+ · FastAPI 0.116 · Streamlit 1.57 · MIT License
 
 ---
 
