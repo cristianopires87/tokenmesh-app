@@ -1,8 +1,6 @@
 # TokenMesh
 
-**Open-source token observability and cost governance for multi-agent LLM systems.**
-
-Count tokens, compare costs across providers, visualize tokenization breaks, and track every agent call in one place.
+Token observability and cost governance for multi-agent LLM systems.
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -11,56 +9,27 @@ Count tokens, compare costs across providers, visualize tokenization breaks, and
 
 ---
 
-## Why TokenMesh?
+## Overview
 
-When you run multiple AI agents calling multiple LLM providers (OpenAI, Anthropic, DeepSeek, Gemini, Mistral, AWS Bedrock...), two problems appear fast:
+TokenMesh provides two things:
 
-1. **Before the call:** "How many tokens is this prompt? What will it cost on each provider?"
-2. **After the call:** "Which agent burned the most tokens? What was the total cost this week?"
+- **Pre-flight calculator:** count tokens and compare costs across providers before making a call
+- **Usage collector:** a lightweight HTTP API that records every LLM event from your agents
 
-TokenMesh solves both: a **token calculator dashboard** for pre-flight cost comparison, and a **lightweight collector API** that tracks every real LLM event from your agents.
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                       Your Application                           │
-│                                                                   │
-│   ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐   │
-│   │  OpenAI SDK │  │Anthropic SDK│  │ DeepSeek / Gemini /  │   │
-│   │  (GPT-5)    │  │  (Claude)   │  │  Mistral / Bedrock   │   │
-│   └──────┬──────┘  └──────┬──────┘  └──────────┬───────────┘   │
-│          └────────────────┼─────────────────────┘               │
-│                           ▼                                       │
-│               ┌─────────────────────┐                            │
-│               │   TokenMesh SDK     │                            │
-│               │   tracker.track()   │                            │
-│               └──────────┬──────────┘                            │
-└──────────────────────────┼────────────────────────────────────── ┘
-                            │  HTTP POST /track
-                            ▼
-                 ┌─────────────────────┐
-                 │  Collector (FastAPI) │
-                 │  /track             │
-                 │  /analytics/*       │
-                 └──────────┬──────────┘
-                            │  SQLite (dev) · PostgreSQL (prod)
-                 ┌──────────▼──────────┐
-                 │  Dashboard          │
-                 │  (Streamlit)        │
-                 │  · Token Calculator │
-                 │  · Token Visualizer │
-                 │  · Cost Comparison  │
-                 └─────────────────────┘
-```
+It supports OpenAI, Anthropic, DeepSeek, Google Gemini, Mistral, and AWS Bedrock out of the box.
 
 ---
 
-## Quickstart
+## Requirements
 
-### Option A: Local (SQLite, no Docker)
+- Python 3.11+
+- Docker (optional, for the PostgreSQL stack)
+
+---
+
+## Installation
+
+### Local (SQLite)
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/tokenmesh.git
@@ -68,17 +37,17 @@ cd tokenmesh
 pip install -r requirements.txt   # or: poetry install
 cp .env.example .env
 
-# Terminal 1: Collector API
+# Terminal 1 — Collector API
 uvicorn collector.app.main:app --reload
 
-# Terminal 2: Dashboard
+# Terminal 2 — Dashboard
 streamlit run dashboard/app.py
 ```
 
-- Collector API: http://localhost:8000
-- Dashboard:     http://localhost:8501
+- Collector: http://localhost:8000
+- Dashboard:  http://localhost:8501
 
-### Option B: Docker (PostgreSQL)
+### Docker (PostgreSQL)
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/tokenmesh.git
@@ -86,41 +55,7 @@ cd tokenmesh
 docker compose up
 ```
 
-> PostgreSQL requires adding `psycopg2-binary` to your environment:
-> `pip install psycopg2-binary`
-
----
-
-## Dashboard Features
-
-### Token Calculator
-
-Paste any text or prompt and TokenMesh instantly shows:
-
-- **Token count** per provider (each provider has its own tokenizer)
-- **Cost comparison** table across all 47+ models
-- **Context window usage** with per-provider fit/overflow detection
-- **Prompt caching ROI** with break-even analysis (OpenAI, Anthropic, DeepSeek, Google, AWS Bedrock)
-- **Multi-turn cost projector** showing quadratic cost growth over conversation turns
-- **Architecture recommendation** with pipeline, routing, and single-call strategies
-- **Model tiers:** cost-optimized, balanced, and premium picks for your input size
-- **Prompt Compressor:** detects redundant tokens (comments, stopwords, repeated phrases)
-- **Token Hotspot:** highlights the densest segments in your text
-- **Template Analyzer:** identifies fixed vs variable prompt sections and cache eligibility
-- **Budget Calculator:** how many calls your monthly budget supports
-
-### Token Visualizer
-
-Each token is highlighted with a distinct color, exactly like the OpenAI tokenizer playground, but for every provider:
-
-| Provider      | Tokenizer            | Accuracy  |
-|---------------|----------------------|-----------|
-| OpenAI        | tiktoken (exact)     | Exact     |
-| Anthropic     | cl100k_base BPE      | ~Approx   |
-| DeepSeek      | cl100k_base BPE      | ~Approx   |
-| Google-Gemini | char-based estimate  | Estimate  |
-| Mistral       | char-based estimate  | Estimate  |
-| AWS-Bedrock   | char-based estimate  | Estimate  |
+> PostgreSQL requires `psycopg2-binary`: `pip install psycopg2-binary`
 
 ---
 
@@ -129,10 +64,9 @@ Each token is highlighted with a distinct color, exactly like the OpenAI tokeniz
 ```python
 from tokenmesh import tracker
 
-# After any LLM call, track the event:
 tracker.track(
     provider="openai",
-    model="gpt-5",
+    model="gpt-4o",
     tenant_id="acme_corp",
     project_id="customer_support",
     agent_id="triage_agent",
@@ -142,7 +76,7 @@ tracker.track(
 )
 ```
 
-If the Collector is unreachable, the event is printed locally so nothing is silently lost.
+If the Collector is unreachable, the event is printed locally — nothing is silently dropped.
 
 ### Custom Collector URL
 
@@ -152,7 +86,7 @@ from tokenmesh.tracker.tracker import TokenTracker
 tracker = TokenTracker(collector_url="https://tokenmesh.my-company.com")
 ```
 
-Or set the environment variable:
+Or via environment variable:
 
 ```bash
 export TOKENMESH_COLLECTOR_URL=https://tokenmesh.my-company.com
@@ -160,9 +94,41 @@ export TOKENMESH_COLLECTOR_URL=https://tokenmesh.my-company.com
 
 ---
 
-## Supported Providers and Models
+## Dashboard
 
-### OpenAI: GPT-5 family
+### Token Calculator
+
+Enter any prompt text and get:
+
+- Token count per provider (each uses its own tokenizer)
+- Cost comparison across 47+ models
+- Context window usage with overflow detection
+- Prompt caching ROI and break-even analysis
+- Multi-turn cost projection
+- Architecture recommendations (pipeline, routing, single-call)
+- Budget calculator (calls per month for a given spend)
+- Prompt Compressor: flags redundant tokens (comments, stopwords, repeated phrases)
+- Token Hotspot: highlights the densest segments
+- Template Analyzer: separates fixed from variable sections and marks cache eligibility
+
+### Token Visualizer
+
+Highlights each token with a distinct color, like the OpenAI tokenizer playground, for every supported provider.
+
+| Provider      | Tokenizer            | Accuracy  |
+|---------------|----------------------|-----------|
+| OpenAI        | tiktoken (exact)     | Exact     |
+| Anthropic     | cl100k_base BPE      | ~Approx   |
+| DeepSeek      | cl100k_base BPE      | ~Approx   |
+| Google Gemini | char-based estimate  | Estimate  |
+| Mistral       | char-based estimate  | Estimate  |
+| AWS Bedrock   | char-based estimate  | Estimate  |
+
+---
+
+## Supported Models
+
+### OpenAI — GPT-5
 
 | Model          | Input ($/1M) | Output ($/1M) |
 |----------------|-------------:|---------------:|
@@ -175,7 +141,7 @@ export TOKENMESH_COLLECTOR_URL=https://tokenmesh.my-company.com
 | gpt-5.4-nano   | $0.20        | $0.80          |
 | gpt-5.5        | $5.00        | $30.00         |
 
-### OpenAI: GPT-4 family
+### OpenAI — GPT-4
 
 | Model          | Input ($/1M) | Output ($/1M) |
 |----------------|-------------:|---------------:|
@@ -191,7 +157,7 @@ export TOKENMESH_COLLECTOR_URL=https://tokenmesh.my-company.com
 | o3-mini        | $1.10        | $4.40          |
 | o4-mini        | $1.10        | $4.40          |
 
-### Anthropic: Claude 4 family
+### Anthropic — Claude 4
 
 | Model              | Input ($/1M) | Output ($/1M) |
 |--------------------|-------------:|---------------:|
@@ -204,7 +170,7 @@ export TOKENMESH_COLLECTOR_URL=https://tokenmesh.my-company.com
 | claude-sonnet-4-5  | $3.00        | $15.00         |
 | claude-haiku-4-5   | $1.00        | $5.00          |
 
-### Anthropic: Claude 3 family
+### Anthropic — Claude 3
 
 | Model              | Input ($/1M) | Output ($/1M) |
 |--------------------|-------------:|---------------:|
@@ -220,7 +186,7 @@ export TOKENMESH_COLLECTOR_URL=https://tokenmesh.my-company.com
 | deepseek-v3    | $0.27        | $1.10          |
 | deepseek-r1    | $0.55        | $2.19          |
 
-### Google-Gemini
+### Google Gemini
 
 | Model               | Input ($/1M) | Output ($/1M) |
 |---------------------|-------------:|---------------:|
@@ -228,7 +194,7 @@ export TOKENMESH_COLLECTOR_URL=https://tokenmesh.my-company.com
 | gemini-1.5-pro      | $1.25        | $5.00          |
 | gemini-1.5-flash    | $0.075       | $0.30          |
 
-### AWS Bedrock: Meta Llama
+### AWS Bedrock — Meta Llama
 
 | Model                    | Input ($/1M) | Output ($/1M) |
 |--------------------------|-------------:|---------------:|
@@ -248,7 +214,7 @@ export TOKENMESH_COLLECTOR_URL=https://tokenmesh.my-company.com
 
 ### Devin (Cognition AI)
 
-Devin uses ACU-based pricing (1 ACU = $2.25). The rate shown is derived from a typical session estimate of 100k tokens/ACU and is provided for comparison only.
+Uses ACU-based pricing (1 ACU = $2.25). The effective rate is derived from a typical session estimate of 100k tokens/ACU and is provided for comparison only.
 
 | Model          | Effective ($/1M) |
 |----------------|------------------:|
@@ -258,29 +224,29 @@ Missing a model? See [CONTRIBUTING.md](CONTRIBUTING.md) — adding one takes und
 
 ---
 
-## Collector API Reference
+## Collector API
 
-| Method | Endpoint                   | Description                                      |
-|--------|----------------------------|--------------------------------------------------|
-| POST   | `/track`                   | Ingest an LLM event                              |
-| GET    | `/health`                  | Service health check                             |
-| GET    | `/analytics/summary`       | Total tokens, requests, avg latency              |
-| GET    | `/analytics/costs`         | Total estimated cost in USD                      |
-| GET    | `/analytics/providers`     | Tokens and cost grouped by provider              |
-| GET    | `/analytics/agents`        | Tokens and cost grouped by agent                 |
-| GET    | `/analytics/projects`      | Tokens and cost grouped by project               |
-| GET    | `/analytics/models`        | Tokens and cost grouped by model                 |
-| GET    | `/analytics/timeline`      | Daily breakdown (configurable window)            |
-| GET    | `/analytics/filters`       | Available tenant/project/agent filter values     |
+| Method | Endpoint                   | Description                                  |
+|--------|----------------------------|----------------------------------------------|
+| POST   | `/track`                   | Ingest an LLM event                          |
+| GET    | `/health`                  | Health check                                 |
+| GET    | `/analytics/summary`       | Total tokens, requests, average latency      |
+| GET    | `/analytics/costs`         | Total estimated cost in USD                  |
+| GET    | `/analytics/providers`     | Tokens and cost grouped by provider          |
+| GET    | `/analytics/agents`        | Tokens and cost grouped by agent             |
+| GET    | `/analytics/projects`      | Tokens and cost grouped by project           |
+| GET    | `/analytics/models`        | Tokens and cost grouped by model             |
+| GET    | `/analytics/timeline`      | Daily breakdown (configurable window)        |
+| GET    | `/analytics/filters`       | Available tenant/project/agent filter values |
 
-All analytics endpoints accept optional `?tenant_id=`, `?project_id=`, `?agent_id=` query params.
+All analytics endpoints accept `?tenant_id=`, `?project_id=`, and `?agent_id=` query parameters.
 
-### POST `/track` payload
+### POST `/track`
 
 ```json
 {
   "provider": "openai",
-  "model": "gpt-5",
+  "model": "gpt-4o",
   "tenant_id": "acme_corp",
   "project_id": "customer_support",
   "agent_id": "triage_agent",
@@ -290,7 +256,7 @@ All analytics endpoints accept optional `?tenant_id=`, `?project_id=`, `?agent_i
 }
 ```
 
-### GET `/analytics/providers` response
+### GET `/analytics/providers`
 
 ```json
 [
@@ -309,26 +275,24 @@ All analytics endpoints accept optional `?tenant_id=`, `?project_id=`, `?agent_i
 
 ## Examples
 
-See the [`examples/`](examples/) folder for ready-to-run integrations:
+Ready-to-run scripts in [`examples/`](examples/):
 
-- [`openai_example.py`](examples/openai_example.py): GPT-5 / GPT-4o
-- [`claude_example.py`](examples/claude_example.py): Claude (Anthropic SDK)
-- [`deepseek_example.py`](examples/deepseek_example.py): DeepSeek via OpenAI-compatible API
-- [`gemini_example.py`](examples/gemini_example.py): Gemini (Google SDK)
-- [`llama_bedrock_example.py`](examples/llama_bedrock_example.py): Meta Llama via AWS Bedrock
-- [`multi_agent_example.py`](examples/multi_agent_example.py): Multiple agents, multiple providers
+- [`openai_example.py`](examples/openai_example.py) — GPT-4o / GPT-5
+- [`claude_example.py`](examples/claude_example.py) — Claude via Anthropic SDK
+- [`deepseek_example.py`](examples/deepseek_example.py) — DeepSeek via OpenAI-compatible API
+- [`gemini_example.py`](examples/gemini_example.py) — Gemini via Google SDK
+- [`llama_bedrock_example.py`](examples/llama_bedrock_example.py) — Meta Llama via AWS Bedrock
+- [`multi_agent_example.py`](examples/multi_agent_example.py) — multiple agents and providers
 
 ---
 
 ## Contributing
 
-Contributions are welcome, especially:
+See [CONTRIBUTING.md](CONTRIBUTING.md). The most needed contributions are:
 
-- **New models / updated pricing** (most needed, easiest to add)
-- **New provider tokenizers** (improve accuracy beyond BPE approximation)
-- **Dashboard improvements**
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
+- New models or updated pricing
+- New provider tokenizers (improved accuracy beyond BPE approximation)
+- Dashboard improvements
 
 ---
 
